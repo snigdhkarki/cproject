@@ -2,6 +2,14 @@
 #include <stdlib.h>
 #include <stdint.h>
 
+void save_4bytes(uint32_t val, FILE *stream)
+{
+    fprintf(stream, "%c", (val & 0x000000FF) >> 0 * 8);
+    fprintf(stream, "%c", (val & 0x0000FF00) >> 1 * 8);
+    fprintf(stream, "%c", (val & 0x00FF0000) >> 2 * 8);
+    fprintf(stream, "%c", (val & 0xFF000000) >> 3 * 8);
+}
+
 struct BITMAP_header{
     char name[2];//should be BM
     uint32_t size;
@@ -22,53 +30,63 @@ struct DIB_header{
 
 };
 
-// struct RGB {
-//     uint8_t blue;
-//     uint8_t green;
-//     uint8_t red;
-// };
 
-// uint8_t greyscale(struct RGB rgb){
-//     return ((0.3 * rgb.red)+ (0.6 *rgb.green) + (0.1*rgb.blue))/3;
-// };
+uint8_t greyscale(uint8_t rgb[3]){
+    return (uint8_t)((0.3 * rgb[0]) + (0.59 * rgb[1]) + (0.11 * rgb[2]));
+};
 
-// void RGBImageToGreyscale(uint32_t height, uint32_t width, struct RGB image[height][width]){
-//     struct RGB imagenew[height][width];
-    // printf("%d", image[0][100].red);
-    // for (int i =0; i<height-1; i++){
-    //     for(int j = 0; j<width-1; j++){ 
+void RGBImageToGreyscale(uint32_t height, uint32_t width,  uint8_t image[height][width][3]){
+    for (int i =0; i<=height-1; i++){
+        for(int j = 0; j<=width-1; j++){             
+            image[i][j][0] = greyscale(image[i][j]);
+            image[i][j][1] = greyscale(image[i][j]);
+            image[i][j][2] = greyscale(image[i][j]); 
+        }
+    }    
 
-    //         // printf("%d %d ", i , j);  
-    //         // printf("%d \n", greyscale(image[i][j]));      
-    //         // imagenew[i][j].red = greyscale(image[i][j]);
-    //         // imagenew[i][j].green = greyscale(image[i][j]);
-    //         // imagenew[i][j].blue = greyscale(image[i][j]); 
-    //     }
-    // }
+}
 
-// }
+void createImage(struct BITMAP_header header, struct DIB_header dibheader, uint8_t image[dibheader.height][dibheader.width][3]){
+    FILE *fpn = fopen("new.bmp", "wb");
+    uint32_t padded_size= dibheader.width*3 * dibheader.height;
+    fprintf(fpn, "BM");
+    save_4bytes(padded_size + 54, fpn);
+    save_4bytes(0, fpn);
+    save_4bytes(54, fpn);
+    save_4bytes(40, fpn);
+    save_4bytes(dibheader.width, fpn);
+    save_4bytes(dibheader.height, fpn);
+    fprintf(fpn, "%c", 1);
+    fprintf(fpn, "%c", 0);
+    fprintf(fpn, "%c", 24);
+    fprintf(fpn, "%c", 0);
+    save_4bytes(0, fpn);
+    save_4bytes(padded_size, fpn);
+    save_4bytes(0, fpn);
+    save_4bytes(0, fpn);
+    save_4bytes(0, fpn);
+    save_4bytes(0, fpn);
 
-// void createImage(struct BITMAP_header header, struct DIB_header dibheader, struct RGB image[dibheader.height][dibheader.width]){
-//     FILE *fpn = fopen("new.bmp", "w");
-//     fwrite(header.name, 2,1,fpn);
-//     fwrite(&header.size,4,1,fpn);
-//     fwrite(&dibheader, sizeof(struct DIB_header),1,fpn);
-//     printf("%d", image[0][100].red);
-//     RGBImageToGreyscale(dibheader.height, dibheader.width, image);
-//     for (int i = dibheader.height-1; i<0; i--){
-//         for (int j=0; j >= dibheader.width; j++){
-//             fwrite(&image[i][j], sizeof(struct RGB), 1, fpn);
-//             }
-//     }
-//     fclose(fpn);
+    RGBImageToGreyscale(dibheader.height, dibheader.width, image);
 
-// }
+    for (int i = 0; i < dibheader.height; i++)
+    {
+        for (int j = 0; j < dibheader.width; j++)
+        {
+            for (int k = 2; k >= 0; k--)
+            {
+                fputc(image[dibheader.height-1-i][j][k],fpn);
+            }     
+        }     
+    }
+    fclose(fpn);
 
-void openbmpfile(){
-    FILE *fp = fopen("cat.bmp", "rb");
+}
+
+void main(){
+    FILE *fp = fopen("sample1.bmp", "rb");
     struct BITMAP_header header;
-    struct DIB_header dibheader;
-    uint8_t image[dibheader.height][dibheader.width][3];
+    struct DIB_header dibheader;    
     
     fread(header.name, 2,1,fp); //cant read the entire structure &header because it is 16byte instead of 14byte cuz C make all 4 byte for efficiency
     fread(&header.size, 4,1,fp);
@@ -83,38 +101,13 @@ void openbmpfile(){
     ,dibheader.header_size, dibheader.width, dibheader.height, dibheader.colorplanes, dibheader.bitsperpixel, dibheader.compression, dibheader.image_size);
     
     fseek(fp, header.image_offset, SEEK_SET);//starting from the beginning go ahead by image offset
+    uint8_t image[dibheader.height][dibheader.width][3];
     //the image is represented from bottom to top
-
-    // fread(image,1,dibheader.image_size,fp);
-    
-    // int i=dibheader.height -1,j=0;
-    // printf(" %d %d \n", i, j);
-    // fread(&image[i][j], sizeof(image[i][j]), 1, fp);    
-    // j++;
-    // printf(" %d %d \n", i, j);
-    // fread(&image[i][j], sizeof(image[i][j]), 1, fp);
-    // j++;
-    // printf(" %d %d \n", i, j);
-    // fread(&image[i][j], sizeof(image[i][j]), 1, fp);
-
-    // printf("%d", dibheader.height-1);    
-    // for (i = dibheader.height -1; i>=0; i=i-1){
-    //     for (j=0; j < dibheader.width; j++){ 
-    //         printf(" %d %d \n", i, j);               
-    //         fread(&image[i][j], sizeof(image[i][j]), 1, fp);
-    //         }        
-    // }   
-    // printf("%d \n", image[0][100].red);
-    
-
-    //createImage(header, dibheader, image);
-
-    
-
+    for (int row = dibheader.height - 1; row >= 0; row--) {
+        fread(image[row], 1, dibheader.width * 3, fp);
+    }
+    createImage(header, dibheader, image);
     fclose(fp);
-}
-
-void main(){
-    openbmpfile();
+    
     
 }
